@@ -936,3 +936,56 @@ Filters Used:"""
         except Exception as e:
             self.log(f"Error deleting video: {e}", level='error')
             messagebox.showerror("Error", f"Failed to delete video: {e}")
+
+    def check_server_connection(self):
+        """Verifica conexão com o servidor"""
+        try:
+            response = requests.get(f"{self.server_url_var.get()}/api/health", timeout=5)
+            
+            if response.status_code == 200:
+                self.server_status.config(
+                    text="🟢 Server Online",
+                    foreground='green'
+                )
+                self.log("Server connection successful")
+                return True
+            else:
+                self.server_status.config(
+                    text="🟡 Server responding but with errors",
+                    foreground='orange'
+                )
+                self.log("Server responding with errors", level='warning')
+                return False
+                
+        except requests.exceptions.ConnectionError:
+            self.server_status.config(
+                text="🔴 Server Offline",
+                foreground='red'
+            )
+            self.log("Cannot connect to server", level='error')
+            return False
+        except Exception as e:
+            self.server_status.config(
+                text=f"⚠️ Connection Error: {e}",
+                foreground='red'
+            )
+            self.log(f"Server connection error: {e}", level='error')
+            return False
+    
+    def log(self, message, level='info'):
+        """Adiciona mensagem ao log"""
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        log_message = f"[{timestamp}] {message}\n"
+        
+        # Adicionar ao widget de log
+        if hasattr(self, 'log_text'):
+            self.log_text.insert(tk.END, log_message)
+            self.log_text.see(tk.END)
+        
+        # Log no console/arquivo
+        if level == 'error':
+            logger.error(message)
+        elif level == 'warning':
+            logger.warning(message)
+        else:
+            logger.info(message)
