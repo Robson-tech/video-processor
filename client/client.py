@@ -702,3 +702,71 @@ class VideoProcessingClient:
         
         self.log(f"Upload error: {error_msg}", level='error')
         messagebox.showerror("Upload Error", f"Failed to upload video:\n{error_msg}")
+
+    def load_history(self):
+        """Carrega histórico de vídeos do servidor"""
+        try:
+            response = requests.get(f"{SERVER_URL}/api/videos", timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.video_history = data['videos']
+                
+                # Limpar treeview
+                for item in self.history_tree.get_children():
+                    self.history_tree.delete(item)
+                
+                # Adicionar vídeos
+                for video in self.video_history:
+                    # Formatar dados
+                    video_id = video['id'][:8] + '...'
+                    name = video['original_name']
+                    filter_name = video['filter'].upper()
+                    date = video['created_at'][:19] if video['created_at'] else 'Unknown'
+                    duration = f"{video.get('duration_sec', 0):.1f}s"
+                    size_mb = video.get('size_bytes', 0) / (1024 * 1024)
+                    size = f"{size_mb:.1f} MB"
+                    
+                    # Inserir na árvore
+                    self.history_tree.insert('', 'end', values=(
+                        video['id'], name, filter_name, date, duration, size
+                    ))
+                
+                # Atualizar contagem
+                self.history_count.config(text=f"{len(self.video_history)} videos")
+                
+                # Atualizar estatísticas
+                self.update_statistics()
+                
+                self.log(f"Loaded {len(self.video_history)} videos from history")
+                
+        except Exception as e:
+            self.log(f"Error loading history: {e}", level='error')
+    
+    def update_statistics(self):
+        """Atualiza estatísticas na aba de configurações"""
+        if not self.video_history:
+            return
+        
+        total_videos = len(self.video_history)
+        total_size = sum(v.get('size_bytes', 0) for v in self.video_history) / (1024**3)  # GB
+        total_duration = sum(v.get('duration_sec', 0) for v in self.video_history) / 60  # minutos
+        
+        # Contar filtros
+        filter_counts = {}
+        for video in self.video_history:
+            filter_name = video.get('filter', 'unknown')
+            filter_counts[filter_name] = filter_counts.get(filter_name, 0) + 1
+        
+        stats_text = f"""📊 Video Processing Statistics:
+
+Total Videos: {total_videos}
+Total Size: {total_size:.2f} GB
+Total Duration: {total_duration:.1f} minutes
+
+Filters Used:"""
+        
+        for filter_name, count in filter_counts.items():
+            stats_text += f"\n  • {filter_name}: {count} videos"
+        
+        self.stats_label.config(text=stats_text)
