@@ -770,3 +770,77 @@ Filters Used:"""
             stats_text += f"\n  • {filter_name}: {count} videos"
         
         self.stats_label.config(text=stats_text)
+
+    def play_selected_video(self):
+        """Reproduz vídeo selecionado no histórico"""
+        selection = self.history_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select a video from the history")
+            return
+        
+        # Obter ID do vídeo
+        item = self.history_tree.item(selection[0])
+        video_id = item['values'][0]
+        
+        # Buscar informações do vídeo
+        try:
+            response = requests.get(f"{SERVER_URL}/api/video/{video_id}")
+            if response.status_code == 200:
+                video_data = response.json()['video']
+                
+                # URLs dos vídeos (já vêm como URLs absolutas do servidor)
+                original_url = video_data.get('path_original', '')
+                processed_url = video_data.get('path_processed', '')
+                
+                # Baixar e reproduzir
+                self.download_and_play(video_id, original_url, processed_url)
+                
+        except Exception as e:
+            self.log(f"Error playing video: {e}", level='error')
+            messagebox.showerror("Error", f"Failed to play video: {e}")
+    
+    def download_and_play(self, video_id, original_url, processed_url):
+        """Baixa vídeos temporariamente e abre player"""
+        try:
+            # Criar diretório temporário
+            temp_dir = Path('temp_videos')
+            temp_dir.mkdir(exist_ok=True)
+            
+            # Baixar vídeos
+            self.log("Downloading videos for playback...")
+            
+            # Original
+            original_path = temp_dir / f"{video_id}_original.mp4"
+            if original_url:
+                # Se a URL já é completa, use-a; senão, adicione o servidor
+                if not original_url.startswith('http'):
+                    original_url = f"{SERVER_URL}/{original_url}"
+                response = requests.get(original_url, stream=True)
+                with open(original_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+            
+            # Processed
+            processed_path = temp_dir / f"{video_id}_processed.mp4"
+            if processed_url:
+                # Se a URL já é completa, use-a; senão, adicione o servidor
+                if not processed_url.startswith('http'):
+                    processed_url = f"{SERVER_URL}/{processed_url}"
+                response = requests.get(processed_url, stream=True)
+                with open(processed_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+            
+            # Abrir player
+            player = VideoPlayerWindow(
+                self.root,
+                str(original_path),
+                str(processed_path),
+                f"Video Comparison - {video_id[:8]}"
+            )
+            
+            self.log(f"Opened video player for {video_id}")
+            
+        except Exception as e:
+            self.log(f"Error downloading videos: {e}", level='error')
+            messagebox.showerror("Error", f"Failed to download videos: {e}")
