@@ -1,0 +1,18 @@
+# Video Processing System - Dependencies
+# Python 3.8+ required
+
+# Web Framework
+Flask
+flask-cors
+
+# Video Processing & Dependencies
+opencv-python
+moviepy==1.0.3
+Pillow
+numpy
+
+# HTTP Client
+requests
+
+# Utilities
+python-dateutil
