@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 from PIL import Image, ImageTk
 import cv2
+from datetime import datetime
 import webbrowser
 import logging
 
@@ -234,7 +235,7 @@ class VideoPlayerWindow:
 
 class VideoProcessingClient:
     """Cliente principal para processamento de vídeos"""
-
+    
     def __init__(self, root):
         self.root = root
         self.root.title("🎬 Video Processing Client")
@@ -539,7 +540,7 @@ class VideoProcessingClient:
             text="Clear Logs",
             command=lambda: self.log_text.delete(1.0, tk.END)
         ).pack(pady=10)
-
+    
     def select_file(self):
         """Abre diálogo para selecionar arquivo de vídeo"""
         filetypes = (
@@ -616,7 +617,7 @@ class VideoProcessingClient:
             
         except Exception as e:
             self.log(f"Error showing preview: {e}", level='error')
-
+    
     def update_filter_description(self, event=None):
         """Atualiza descrição do filtro selecionado"""
         descriptions = {
@@ -726,7 +727,7 @@ class VideoProcessingClient:
         
         self.log(f"Upload error: {error_msg}", level='error')
         messagebox.showerror("Upload Error", f"Failed to upload video:\n{error_msg}")
-
+    
     def load_history(self):
         """Carrega histórico de vídeos do servidor"""
         try:
@@ -794,7 +795,7 @@ Filters Used:"""
             stats_text += f"\n  • {filter_name}: {count} videos"
         
         self.stats_label.config(text=stats_text)
-
+    
     def play_selected_video(self):
         """Reproduz vídeo selecionado no histórico"""
         selection = self.history_tree.selection()
@@ -868,7 +869,7 @@ Filters Used:"""
         except Exception as e:
             self.log(f"Error downloading videos: {e}", level='error')
             messagebox.showerror("Error", f"Failed to download videos: {e}")
-
+    
     def download_video(self, video_type):
         """Baixa vídeo original ou processado"""
         selection = self.history_tree.selection()
@@ -960,7 +961,7 @@ Filters Used:"""
         except Exception as e:
             self.log(f"Error deleting video: {e}", level='error')
             messagebox.showerror("Error", f"Failed to delete video: {e}")
-
+    
     def check_server_connection(self):
         """Verifica conexão com o servidor"""
         try:
