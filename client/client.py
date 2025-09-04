@@ -5,7 +5,8 @@ Versão corrigida para corresponder ao servidor atual
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
+import os
 import threading
 import time
 from pathlib import Path
@@ -513,3 +514,80 @@ class VideoProcessingClient:
             text="Clear Logs",
             command=lambda: self.log_text.delete(1.0, tk.END)
         ).pack(pady=10)
+
+    def select_file(self):
+        """Abre diálogo para selecionar arquivo de vídeo"""
+        filetypes = (
+            ('Video files', '*.mp4 *.avi *.mov *.mkv *.webm *.flv'),
+            ('All files', '*.*')
+        )
+        
+        filename = filedialog.askopenfilename(
+            title='Select a video file',
+            initialdir=os.path.expanduser('~'),
+            filetypes=filetypes
+        )
+        
+        if filename:
+            self.selected_file = filename
+            self.file_label.config(text=os.path.basename(filename))
+            self.upload_button.config(state='normal')
+            
+            # Mostrar preview
+            self.show_video_preview(filename)
+            
+            # Log
+            self.log(f"Selected file: {filename}")
+    
+    def show_video_preview(self, video_path):
+        """Mostra preview do vídeo selecionado"""
+        try:
+            cap = cv2.VideoCapture(video_path)
+            
+            # Pegar frame do meio
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, total_frames // 2)
+            
+            ret, frame = cap.read()
+            if ret:
+                # Converter BGR para RGB
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Redimensionar
+                height, width = frame_rgb.shape[:2]
+                canvas_width = self.preview_canvas.winfo_width()
+                if canvas_width < 100:
+                    canvas_width = 600
+                
+                scale = canvas_width / width
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                
+                frame_resized = cv2.resize(frame_rgb, (new_width, new_height))
+                
+                # Converter para PIL e exibir
+                image = Image.fromarray(frame_resized)
+                photo = ImageTk.PhotoImage(image)
+                
+                self.preview_canvas.delete("all")
+                self.preview_canvas.create_image(
+                    canvas_width//2, 150,
+                    image=photo, anchor=tk.CENTER
+                )
+                self.preview_canvas.image = photo
+                
+                # Exibir informações
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                duration = total_frames / fps if fps > 0 else 0
+                info_text = f"Resolution: {width}x{height} | Duration: {duration:.1f}s | FPS: {fps:.0f}"
+                self.preview_canvas.create_text(
+                    canvas_width//2, 280,
+                    text=info_text,
+                    fill="white",
+                    font=('Arial', 10)
+                )
+            
+            cap.release()
+            
+        except Exception as e:
+            self.log(f"Error showing preview: {e}", level='error')
