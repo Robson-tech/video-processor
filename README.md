@@ -26,20 +26,11 @@ Sistema completo de processamento de vídeos que permite aos usuários fazer upl
 - **Interface Gráfica**: Cliente desktop em Tkinter
 - **API REST**: Endpoints para integração
 
+
 ## 🏗️ Arquitetura
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│  Cliente GUI    │────▶│  Servidor Flask │────▶│  Banco SQLite   │
-│  (Tkinter)      │◀────│  (API REST)     │◀────│  + Storage      │
-│                 │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        ▲                       ▲
-        │                       │
-        └───────────────────────┘
-          Interface Web (Gallery)
-```
+![Arquitetura do Sistema](telas/diagrama.jpg)
+
 
 ## 📦 Requisitos
 
@@ -147,6 +138,26 @@ Caso queira testar usando dois computadores deve trocar localhost pelo IP da má
 ### 4. Acessar a Galeria Web
 
 Abra o navegador em: `http://localhost:5000/gallery`
+
+## 📸 Prints do Sistema
+
+Alguns prints de tela mostrando o funcionamento do sistema:
+
+### 🔹 Tela do Cliente
+![Tela Cliente](telas/tela_cliente.png)
+
+### 🔹 Histórico do Cliente
+![Histórico](telas/cliente_historico.png)
+
+### 🔹 Logs e Configurações
+![Logs e Configurações](telas/cliente_logs_e_config.png)
+
+### 🔹 Galeria Web
+![Galeria](telas/galeria.jpg)
+
+### 🔹 Vídeo Original e Processado
+![Vídeo Original e Processado](telas/video_original_processado.png)
+
 
 ## 🔌 API Endpoints
 
