@@ -844,3 +844,95 @@ Filters Used:"""
         except Exception as e:
             self.log(f"Error downloading videos: {e}", level='error')
             messagebox.showerror("Error", f"Failed to download videos: {e}")
+
+    def download_video(self, video_type):
+        """Baixa vídeo original ou processado"""
+        selection = self.history_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select a video from the history")
+            return
+        
+        # Obter ID do vídeo
+        item = self.history_tree.item(selection[0])
+        video_id = item['values'][0]
+        original_name = item['values'][1]
+        
+        try:
+            # Buscar informações do vídeo
+            response = requests.get(f"{SERVER_URL}/api/video/{video_id}")
+            if response.status_code == 200:
+                video_data = response.json()['video']
+                
+                # URL do vídeo (já vem como URL absoluta do servidor)
+                if video_type == 'original':
+                    video_url = video_data.get('path_original', '')
+                    default_name = original_name
+                else:
+                    video_url = video_data.get('path_processed', '')
+                    filter_name = video_data['filter']
+                    name_parts = original_name.rsplit('.', 1)
+                    default_name = f"{name_parts[0]}_{filter_name}.{name_parts[1] if len(name_parts) > 1 else 'mp4'}"
+                
+                if not video_url:
+                    messagebox.showerror("Error", "Video URL not found")
+                    return
+                
+                # Se a URL não é completa, adicione o servidor
+                if not video_url.startswith('http'):
+                    video_url = f"{SERVER_URL}/{video_url}"
+                
+                # Diálogo para salvar
+                save_path = filedialog.asksaveasfilename(
+                    defaultextension=".mp4",
+                    initialfile=default_name,
+                    filetypes=[("Video files", "*.mp4 *.avi *.mov"), ("All files", "*.*")]
+                )
+                
+                if save_path:
+                    # Baixar vídeo
+                    self.log(f"Downloading {video_type} video...")
+                    response = requests.get(video_url, stream=True)
+                    
+                    with open(save_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    
+                    self.log(f"Video saved to: {save_path}")
+                    messagebox.showinfo("Success", f"Video saved successfully to:\n{save_path}")
+                    
+        except Exception as e:
+            self.log(f"Error downloading video: {e}", level='error')
+            messagebox.showerror("Error", f"Failed to download video: {e}")
+    
+    def delete_video(self):
+        """Deleta vídeo selecionado"""
+        selection = self.history_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select a video from the history")
+            return
+        
+        # Confirmar
+        if not messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this video?"):
+            return
+        
+        # Obter ID do vídeo
+        item = self.history_tree.item(selection[0])
+        video_id = item['values'][0]
+        
+        try:
+            response = requests.delete(f"{SERVER_URL}/api/video/{video_id}")
+            
+            if response.status_code == 200:
+                self.log(f"Video {video_id} deleted successfully")
+                messagebox.showinfo("Success", "Video deleted successfully")
+                
+                # Recarregar histórico
+                self.load_history()
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                self.log(f"Error deleting video: {error_msg}", level='error')
+                messagebox.showerror("Error", f"Failed to delete video: {error_msg}")
+                
+        except Exception as e:
+            self.log(f"Error deleting video: {e}", level='error')
+            messagebox.showerror("Error", f"Failed to delete video: {e}")
