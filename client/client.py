@@ -16,6 +16,7 @@ import cv2
 import webbrowser
 import logging
 
+
 # Configuração de logging
 Path('logs').mkdir(exist_ok=True)
 logging.basicConfig(
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Configurações
 SERVER_URL = "http://localhost:5000"
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks
+
 
 class VideoPlayerWindow:
     """Janela para reprodução de vídeos lado a lado"""
@@ -232,6 +234,28 @@ class VideoPlayerWindow:
 
 class VideoProcessingClient:
     """Cliente principal para processamento de vídeos"""
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("🎬 Video Processing Client")
+        self.root.geometry("1000x700")
+        
+        # Configurar estilo
+        self.setup_styles()
+        
+        # Variáveis
+        self.selected_file = None
+        self.selected_filter = tk.StringVar(value="grayscale")
+        self.video_history = []
+        
+        # Criar interface
+        self.create_widgets()
+        
+        # Verificar conexão com servidor
+        self.check_server_connection()
+        
+        # Carregar histórico
+        self.load_history()
     
     def setup_styles(self):
         """Configura estilos personalizados"""
@@ -989,3 +1013,29 @@ Filters Used:"""
             logger.warning(message)
         else:
             logger.info(message)
+
+
+def main():
+    """Função principal"""
+    # Criar diretórios necessários
+    Path('logs').mkdir(exist_ok=True)
+    Path('temp_videos').mkdir(exist_ok=True)
+    
+    # Criar janela principal
+    root = tk.Tk()
+    
+    # Configurar ícone (se disponível)
+    try:
+        root.iconbitmap('icon.ico')
+    except:
+        pass
+    
+    # Criar aplicação
+    app = VideoProcessingClient(root)
+    
+    # Iniciar loop principal
+    root.mainloop()
+
+
+if __name__ == '__main__':
+    main()
