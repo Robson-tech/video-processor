@@ -5,7 +5,8 @@ Versão corrigida para corresponder ao servidor atual
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
+import requests
 import os
 import threading
 import time
@@ -591,3 +592,113 @@ class VideoProcessingClient:
             
         except Exception as e:
             self.log(f"Error showing preview: {e}", level='error')
+
+    def update_filter_description(self, event=None):
+        """Atualiza descrição do filtro selecionado"""
+        descriptions = {
+            'grayscale': 'Convert to black and white',
+            'blur': 'Apply Gaussian blur effect',
+            'edge': 'Detect edges using Canny algorithm',
+            'pixelate': 'Create pixelated/mosaic effect',
+            'sepia': 'Apply vintage sepia tone',
+            'negative': 'Invert all colors'
+        }
+        
+        filter_name = self.selected_filter.get()
+        description = descriptions.get(filter_name, '')
+        self.filter_description.config(text=description)
+    
+    def upload_video(self):
+        """Faz upload e processamento do vídeo"""
+        if not self.selected_file:
+            messagebox.showwarning("Warning", "Please select a video file first")
+            return
+        
+        # Desabilitar botão e mostrar progresso
+        self.upload_button.config(state='disabled')
+        self.upload_progress.start(10)
+        self.upload_status.config(text="Uploading...", foreground='blue')
+        
+        # Thread para upload
+        thread = threading.Thread(target=self._upload_worker, daemon=True)
+        thread.start()
+    
+    def _upload_worker(self):
+        """Worker thread para upload"""
+        try:
+            # Preparar arquivo
+            with open(self.selected_file, 'rb') as f:
+                files = {'file': (os.path.basename(self.selected_file), f, 'video/mp4')}
+                data = {'filter': self.selected_filter.get()}
+                
+                # Fazer upload
+                self.log(f"Uploading {os.path.basename(self.selected_file)}...")
+                
+                response = requests.post(
+                    f"{SERVER_URL}/api/upload",
+                    files=files,
+                    data=data,
+                    timeout=300  # 5 minutos timeout
+                )
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Atualizar UI no thread principal
+                self.root.after(0, self._upload_success, result)
+                
+            else:
+                error_msg = response.json().get('error', 'Unknown error')
+                self.root.after(0, self._upload_error, error_msg)
+                
+        except requests.exceptions.ConnectionError:
+            self.root.after(0, self._upload_error, "Cannot connect to server")
+        except Exception as e:
+            self.root.after(0, self._upload_error, str(e))
+    
+    def _upload_success(self, result):
+        """Callback de sucesso do upload"""
+        self.upload_progress.stop()
+        self.upload_button.config(state='normal')
+        
+        # Extrair informações da resposta do servidor
+        video_id = result['video_id']
+        video_info = result.get('info', {})
+        processing_time = video_info.get('processing_time_sec', 0)
+        
+        self.upload_status.config(
+            text=f"✅ Success! Processing time: {processing_time:.1f}s",
+            foreground='green'
+        )
+        
+        self.log(f"Video uploaded successfully: {video_id}")
+        
+        # Mostrar mensagem
+        messagebox.showinfo(
+            "Success",
+            f"Video processed successfully!\n\n"
+            f"Video ID: {video_id}\n"
+            f"Processing Time: {processing_time:.1f}s\n"
+            f"Filter: {self.selected_filter.get()}"
+        )
+        
+        # Atualizar histórico
+        self.load_history()
+        
+        # Perguntar se quer visualizar
+        if messagebox.askyesno("View Video", "Do you want to view the processed video?"):
+            # Obter URLs dos vídeos
+            original_url = video_info.get('path_original', '')
+            processed_url = video_info.get('path_processed', '')
+            
+            # Baixar vídeos temporariamente
+            self.download_and_play(video_id, original_url, processed_url)
+    
+    def _upload_error(self, error_msg):
+        """Callback de erro do upload"""
+        self.upload_progress.stop()
+        self.upload_button.config(state='normal')
+        self.upload_status.config(text=f"❌ Error: {error_msg}", foreground='red')
+        
+        self.log(f"Upload error: {error_msg}", level='error')
+        messagebox.showerror("Upload Error", f"Failed to upload video:\n{error_msg}")
