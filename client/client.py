@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from PIL import Image, ImageTk
 import cv2
+import webbrowser
 import logging
 
 # Configuração de logging
@@ -225,3 +226,290 @@ class VideoPlayerWindow:
         except Exception as e:
             logger.error(f"Error playing videos: {e}")
             self.stop()
+
+
+class VideoProcessingClient:
+    """Cliente principal para processamento de vídeos"""
+    
+    def setup_styles(self):
+        """Configura estilos personalizados"""
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        # Cores
+        colors = {
+            'primary': '#667eea',
+            'secondary': '#764ba2',
+            'success': '#4CAF50',
+            'danger': '#f44336',
+            'warning': '#ff9800',
+            'dark': '#2c3e50',
+            'light': '#ecf0f1'
+        }
+        
+        # Configurar estilos
+        style.configure('Title.TLabel', font=('Arial', 24, 'bold'))
+        style.configure('Heading.TLabel', font=('Arial', 14, 'bold'))
+        style.configure('Success.TLabel', foreground=colors['success'])
+        style.configure('Error.TLabel', foreground=colors['danger'])
+        style.configure('Primary.TButton', font=('Arial', 11, 'bold'))
+        
+        # Frame com gradiente (simulado)
+        style.configure('Gradient.TFrame', background=colors['light'])
+    
+    def create_widgets(self):
+        """Cria todos os widgets da interface"""
+        # Container principal
+        main_container = ttk.Frame(self.root, style='Gradient.TFrame')
+        main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Título
+        title_frame = ttk.Frame(main_container)
+        title_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        ttk.Label(
+            title_frame,
+            text="🎬 Video Processing System",
+            style='Title.TLabel'
+        ).pack()
+        
+        ttk.Label(
+            title_frame,
+            text="Upload and process videos with custom filters",
+            font=('Arial', 11)
+        ).pack()
+        
+        # Status do servidor
+        self.server_status = ttk.Label(
+            title_frame,
+            text="⚪ Checking server...",
+            font=('Arial', 10)
+        )
+        self.server_status.pack(pady=5)
+        
+        # Notebook para abas
+        self.notebook = ttk.Notebook(main_container)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+        
+        # Aba de Upload
+        self.create_upload_tab()
+        
+        # Aba de Histórico
+        self.create_history_tab()
+        
+        # Aba de Configurações
+        self.create_settings_tab()
+    
+    def create_upload_tab(self):
+        """Cria aba de upload de vídeos"""
+        upload_frame = ttk.Frame(self.notebook)
+        self.notebook.add(upload_frame, text="📤 Upload Video")
+        
+        # Frame de seleção de arquivo
+        file_frame = ttk.LabelFrame(upload_frame, text="Select Video File", padding=15)
+        file_frame.pack(fill=tk.X, padx=20, pady=20)
+        
+        # Botão de seleção
+        ttk.Button(
+            file_frame,
+            text="📂 Choose File",
+            command=self.select_file,
+            style='Primary.TButton'
+        ).pack(side=tk.LEFT, padx=5)
+        
+        # Label do arquivo selecionado
+        self.file_label = ttk.Label(file_frame, text="No file selected")
+        self.file_label.pack(side=tk.LEFT, padx=20)
+        
+        # Frame de preview
+        preview_frame = ttk.LabelFrame(upload_frame, text="Video Preview", padding=10)
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # Canvas para preview
+        self.preview_canvas = tk.Canvas(preview_frame, bg='black', height=300)
+        self.preview_canvas.pack(fill=tk.BOTH, expand=True)
+        
+        # Frame de filtros
+        filter_frame = ttk.LabelFrame(upload_frame, text="Processing Options", padding=15)
+        filter_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        ttk.Label(filter_frame, text="Select Filter:").pack(side=tk.LEFT, padx=5)
+        
+        filters = ['grayscale', 'blur', 'edge', 'pixelate', 'sepia', 'negative']
+        filter_combo = ttk.Combobox(
+            filter_frame,
+            textvariable=self.selected_filter,
+            values=filters,
+            state='readonly',
+            width=15
+        )
+        filter_combo.pack(side=tk.LEFT, padx=10)
+        
+        # Descrição do filtro
+        self.filter_description = ttk.Label(filter_frame, text="Convert to black and white")
+        self.filter_description.pack(side=tk.LEFT, padx=20)
+        
+        # Atualizar descrição quando mudar filtro
+        filter_combo.bind('<<ComboboxSelected>>', self.update_filter_description)
+        
+        # Frame de upload
+        upload_action_frame = ttk.Frame(upload_frame)
+        upload_action_frame.pack(fill=tk.X, padx=20, pady=20)
+        
+        # Botão de upload
+        self.upload_button = ttk.Button(
+            upload_action_frame,
+            text="🚀 Upload & Process",
+            command=self.upload_video,
+            style='Primary.TButton',
+            state='disabled'
+        )
+        self.upload_button.pack(side=tk.LEFT, padx=5)
+        
+        # Progress bar
+        self.upload_progress = ttk.Progressbar(
+            upload_action_frame,
+            mode='indeterminate',
+            length=300
+        )
+        self.upload_progress.pack(side=tk.LEFT, padx=20)
+        
+        # Label de status
+        self.upload_status = ttk.Label(upload_action_frame, text="")
+        self.upload_status.pack(side=tk.LEFT, padx=10)
+    
+    def create_history_tab(self):
+        """Cria aba de histórico de vídeos"""
+        history_frame = ttk.Frame(self.notebook)
+        self.notebook.add(history_frame, text="📜 History")
+        
+        # Frame de controles
+        control_frame = ttk.Frame(history_frame)
+        control_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        ttk.Button(
+            control_frame,
+            text="🔄 Refresh",
+            command=self.load_history
+        ).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            control_frame,
+            text="🌐 Open Gallery",
+            command=lambda: webbrowser.open(f"{SERVER_URL}/gallery")
+        ).pack(side=tk.LEFT, padx=5)
+        
+        # Label de contagem
+        self.history_count = ttk.Label(control_frame, text="0 videos")
+        self.history_count.pack(side=tk.RIGHT, padx=10)
+        
+        # Frame da lista
+        list_frame = ttk.Frame(history_frame)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # Treeview para histórico
+        columns = ('ID', 'Name', 'Filter', 'Date', 'Duration', 'Size')
+        self.history_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=15)
+        
+        # Configurar colunas
+        self.history_tree.heading('ID', text='ID')
+        self.history_tree.heading('Name', text='File Name')
+        self.history_tree.heading('Filter', text='Filter')
+        self.history_tree.heading('Date', text='Date')
+        self.history_tree.heading('Duration', text='Duration')
+        self.history_tree.heading('Size', text='Size')
+        
+        # Larguras das colunas
+        self.history_tree.column('ID', width=100)
+        self.history_tree.column('Name', width=250)
+        self.history_tree.column('Filter', width=100)
+        self.history_tree.column('Date', width=150)
+        self.history_tree.column('Duration', width=80)
+        self.history_tree.column('Size', width=80)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.history_tree.yview)
+        self.history_tree.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack
+        self.history_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Frame de ações
+        action_frame = ttk.Frame(history_frame)
+        action_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        ttk.Button(
+            action_frame,
+            text="▶️ Play Comparison",
+            command=self.play_selected_video
+        ).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            action_frame,
+            text="📥 Download Original",
+            command=lambda: self.download_video('original')
+        ).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            action_frame,
+            text="📥 Download Processed",
+            command=lambda: self.download_video('processed')
+        ).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            action_frame,
+            text="🗑️ Delete",
+            command=self.delete_video
+        ).pack(side=tk.LEFT, padx=5)
+        
+        # Bind double-click
+        self.history_tree.bind('<Double-Button-1>', lambda e: self.play_selected_video())
+    
+    def create_settings_tab(self):
+        """Cria aba de configurações"""
+        settings_frame = ttk.Frame(self.notebook)
+        self.notebook.add(settings_frame, text="⚙️ Settings")
+        
+        # Frame do servidor
+        server_frame = ttk.LabelFrame(settings_frame, text="Server Configuration", padding=20)
+        server_frame.pack(fill=tk.X, padx=20, pady=20)
+        
+        ttk.Label(server_frame, text="Server URL:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        
+        self.server_url_var = tk.StringVar(value=SERVER_URL)
+        server_entry = ttk.Entry(server_frame, textvariable=self.server_url_var, width=40)
+        server_entry.grid(row=0, column=1, padx=10, pady=5)
+        
+        ttk.Button(
+            server_frame,
+            text="Test Connection",
+            command=self.check_server_connection
+        ).grid(row=0, column=2, padx=5, pady=5)
+        
+        # Frame de estatísticas
+        stats_frame = ttk.LabelFrame(settings_frame, text="Statistics", padding=20)
+        stats_frame.pack(fill=tk.X, padx=20, pady=20)
+        
+        self.stats_label = ttk.Label(stats_frame, text="Loading statistics...")
+        self.stats_label.pack()
+        
+        # Frame de logs
+        log_frame = ttk.LabelFrame(settings_frame, text="Application Logs", padding=10)
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Text widget para logs
+        self.log_text = tk.Text(log_frame, height=10, wrap=tk.WORD)
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Scrollbar para logs
+        log_scroll = ttk.Scrollbar(self.log_text, orient=tk.VERTICAL, command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=log_scroll.set)
+        log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Botão para limpar logs
+        ttk.Button(
+            settings_frame,
+            text="Clear Logs",
+            command=lambda: self.log_text.delete(1.0, tk.END)
+        ).pack(pady=10)
