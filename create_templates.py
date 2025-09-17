@@ -10,7 +10,6 @@ def create_gallery_template():
     # Garante que o template seja criado no local correto para o Flask
     template_dir = Path("server") / "templates"
     template_dir.mkdir(parents=True, exist_ok=True)
-    
     output_file = template_dir / "gallery.html"
     
     template_content = '''<!DOCTYPE html>
